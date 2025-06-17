@@ -53,7 +53,7 @@ function getPlatformIcon(name) {
 function randomBetween(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-const DEMO_INFLUENCERS = Array.from({ length: 100 }, (_, i) => ({
+const influencers = Array.from({ length: 100 }, (_, i) => ({
   id: i + 1,
   name: `Influencer ${i + 1}`,
   username: `@influencer${i + 1}`,
@@ -364,34 +364,83 @@ export default function BrandMatchFlow() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successType, setSuccessType] = useState("created");
   const [showSavedList, setShowSavedList] = useState(false);
+  const [influencers, setInfluencers] = useState([]); // Replace influencers later
 
-  const handleLandingSubmit = e => {
+
+  const handleLandingSubmit = async (e) => {
     e.preventDefault();
+  
     if (!/^www\.[a-zA-Z0-9-]+\.[a-z]{2,}$/.test(website.trim())) {
       setToast({ show: true, text: "Enter a valid website (e.g. www.yourbrand.com)" });
       setTimeout(() => setToast({ show: false }), 2000);
       return;
     }
-    setStep(2);
-    setTimeout(() => setStep(3), 1200);
-  };
-  const handleAddKeyword = () => {
-    if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
-      setKeywords([...keywords, newKeyword.trim()]);
-      setNewKeyword("");
+  
+    setStep(2); // show "Analyzing" loading screen
+  
+    try {
+      const res = await fetch('/api/brand-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website, description }),
+      });
+  
+      if (!res.ok) throw new Error('API error');
+  
+      const data = await res.json();
+  
+      // Update frontend state with API response
+      setBrandSummary(data.summary || "");
+      setKeywords(data.core_keywords || []);
+      setBrandTone(data.brand_tone || "");
+      setCoreValues(data.core_values || "");
+      setAudience(data.target_audience || "");
+      setRegion(data.target_region || "");
+      setPlatforms(data.media_platform || []);
+  
+      setStep(3); // Move to Brand Profile step
+    } catch (error) {
+      setToast({ show: true, text: "Failed to analyze brand. Please try again." });
+      setTimeout(() => setToast({ show: false }), 3000);
+      setStep(1); // Go back to input form
     }
   };
-  const handleRemoveKeyword = idx => {
-    const updated = [...keywords];
-    updated.splice(idx, 1);
-    setKeywords(updated);
+
+    const handleFindInfluencers = async () => {
+    setStep(4); // Show influencer list loading or screen
+  
+    try {
+      const res = await fetch('/api/influencer-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandSummary,
+          keywords,
+          brandTone,
+          coreValues,
+          audience,
+          region,
+          platforms,
+          campaignObjective,
+        }),
+      });
+  
+      if (!res.ok) throw new Error('Failed to fetch influencers');
+  
+      const data = await res.json();
+  
+      setInfluencers(data.influencers || []); // Set influencers from API
+    } catch (error) {
+      setToast({ show: true, text: 'Failed to fetch influencers. Please try again.' });
+      setTimeout(() => setToast({ show: false }), 3000);
+    }
   };
 
-  let influencers = DEMO_INFLUENCERS.slice(0, 100);
-  if (search) influencers = influencers.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
-  if (sort === "Followers") influencers = influencers.slice().sort((a, b) => parseInt(b.followers) - parseInt(a.followers));
-  if (sort === "Engagement") influencers = influencers.slice().sort((a, b) => parseFloat(b.engagement) - parseFloat(a.engagement));
-  if (sort === "Brand Fit Score") influencers = influencers.slice().sort((a, b) => b.fit - a.fit);
+    let filteredInfluencers = influencers.slice(0, 100);
+    if (search) filteredInfluencers = filteredInfluencers.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
+    if (sort === "Followers") filteredInfluencers = filteredInfluencers.slice().sort((a, b) => parseInt(b.followers) - parseInt(a.followers));
+    if (sort === "Engagement") filteredInfluencers = filteredInfluencers.slice().sort((a, b) => parseFloat(b.engagement) - parseFloat(a.engagement));
+    if (sort === "Brand Fit Score") filteredInfluencers = filteredInfluencers.slice().sort((a, b) => b.fit - a.fit);
 
   function handlePlatformChange(option) {
     setPlatforms(prev =>
@@ -724,7 +773,7 @@ export default function BrandMatchFlow() {
           <button
             className="w-full max-w-xs h-12 rounded-xl mt-5 bg-[#7640ec] text-white text-lg font-semibold transition block mx-auto"
             style={{ fontFamily: "Inter" }}
-            onClick={() => setStep(4)}
+            onClick={handleFindInfluencers}
           >
             Find My Influencers
           </button>
@@ -776,7 +825,7 @@ export default function BrandMatchFlow() {
           </div>
           {/* Influencer Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7 pb-36">
-            {influencers.map((inf, idx) => (
+            {filteredInfluencers.map((inf, idx) => (
               <div
                 key={inf.id}
                 className="bg-white rounded-2xl border border-[#d6d7de] px-7 py-6 flex flex-col relative"
@@ -978,7 +1027,7 @@ export default function BrandMatchFlow() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
-            {DEMO_INFLUENCERS.filter(inf => shortlisted.includes(inf.id)).map((inf) => (
+            {influencers.filter(inf => shortlisted.includes(inf.id)).map((inf) => (
               <div key={inf.id} className="bg-white rounded-2xl border border-[#d6d7de] px-7 py-6 flex flex-col relative">
                 <button
                   className="absolute top-6 right-6"
@@ -1032,7 +1081,7 @@ export default function BrandMatchFlow() {
             </button>
             <h2 className={`${FONT.h2} mb-6 text-[#30234d] text-center`}>Compare Influencers</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              {DEMO_INFLUENCERS.filter(inf => compareList.includes(inf.id)).map((inf) => (
+              {influencers.filter(inf => compareList.includes(inf.id)).map((inf) => (
                 <div key={inf.id} className="rounded-lg border border-[#d6d7de] px-6 py-4">
                   <div className="flex items-center mb-2 gap-2">
                     <div className="w-10 h-10 bg-[#f4f4fb] text-[#7640ec] rounded-full flex items-center justify-center font-bold">
@@ -1063,16 +1112,16 @@ export default function BrandMatchFlow() {
               <div className="flex flex-col md:flex-row gap-4 text-[#30234d]">
                 <div>
                   Highest Engagement: <span className="font-semibold text-[#a475f9]">
-                    {DEMO_INFLUENCERS.filter(i => compareList.includes(i.id)).reduce((prev, curr) => (parseFloat(curr.engagement) > parseFloat(prev.engagement) ? curr : prev)).name}
-                    &nbsp;– {DEMO_INFLUENCERS.filter(i => compareList.includes(i.id)).reduce((prev, curr) => (parseFloat(curr.engagement) > parseFloat(prev.engagement) ? curr : prev)).engagement}
+                    {influencers.filter(i => compareList.includes(i.id)).reduce((prev, curr) => (parseFloat(curr.engagement) > parseFloat(prev.engagement) ? curr : prev)).name}
+                    &nbsp;– {influencers.filter(i => compareList.includes(i.id)).reduce((prev, curr) => (parseFloat(curr.engagement) > parseFloat(prev.engagement) ? curr : prev)).engagement}
                   </span>
                 </div>
                 <div>
                   Largest Reach: <span className="font-semibold text-[#a475f9]">
-                    {DEMO_INFLUENCERS.filter(i => compareList.includes(i.id)).reduce((prev, curr) =>
+                    {influencers.filter(i => compareList.includes(i.id)).reduce((prev, curr) =>
                       (parseInt((curr.followers || "0").replace(/\D/g, "")) > parseInt((prev.followers || "0").replace(/\D/g, "")) ? curr : prev)
                     ).name}
-                    &nbsp;– {DEMO_INFLUENCERS.filter(i => compareList.includes(i.id)).reduce((prev, curr) =>
+                    &nbsp;– {influencers.filter(i => compareList.includes(i.id)).reduce((prev, curr) =>
                       (parseInt((curr.followers || "0").replace(/\D/g, "")) > parseInt((prev.followers || "0").replace(/\D/g, "")) ? curr : prev)
                     ).followers}
                   </span>
@@ -1113,7 +1162,7 @@ export default function BrandMatchFlow() {
       {/* --- Saved List Screen (appears after success) --- */}
       {showSavedList && (
         <SavedListScreen
-          influencers={DEMO_INFLUENCERS.filter(inf => shortlisted.includes(inf.id))}
+          influencers={influencers.filter(inf => shortlisted.includes(inf.id))}
           listName={lastSavedList}
           onCreateNewList={() => { setShowSavedList(false); setShortlisted([]); setStep(1); }}
         />
