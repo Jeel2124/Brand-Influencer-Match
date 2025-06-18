@@ -1,26 +1,25 @@
 // pages/api/brand-analysis.js
+
+let latestAnalysis = null; // store latest analyzed data temporarily
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
+  if (req.method === 'POST') {
+    const data = req.body;
+
+    // Validate required fields
+    if (!data.summary || !data.core_keywords) {
+      return res.status(400).json({ error: 'Missing required analysis fields' });
+    }
+
+    latestAnalysis = data; // save received analysis
+
+    return res.status(200).json({ message: 'Analysis saved successfully' });
+  } else if (req.method === 'GET') {
+    if (!latestAnalysis) {
+      return res.status(404).json({ error: 'No analysis found' });
+    }
+    return res.status(200).json(latestAnalysis); // serve latest analysis
+  } else {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
-  const { website, description } = req.body;
-
-  if (!website) {
-    return res.status(400).json({ error: 'Website is required' });
-  }
-
-  // TODO: Call AI service or your logic here to analyze the brand
-  // Example dummy response
-  const result = {
-    summary: "A fitness apparel brand focusing on active lifestyle.",
-    core_keywords: ["Fitness", "Activewear", "Community", "Performance", "Motivation"],
-    brand_tone: "Empowering, Bold, Authentic",
-    core_values: "Performance, Inclusion, Excellence",
-    target_audience: "18–35, active lifestyle audience",
-    target_region: "United States",
-    media_platform: ["Instagram", "YouTube"],
-  };
-
-  res.status(200).json(result);
 }
