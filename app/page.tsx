@@ -830,6 +830,7 @@ export default function BrandMatchFlow() {
               {loading ? "Finding Influencers..." : "Find My Influencers"}
             </button>
           </div>
+        </div>
         )}
         
         {/* ---------- STEP 4: INFLUENCER LIST ---------- */}
@@ -1230,6 +1231,7 @@ export default function BrandMatchFlow() {
                 >Add All to Shortlist</button>
               </div>
             </div>
+          </div>
         )}
         
         {/* ---------- EXPORT LIST MODAL ---------- */}
@@ -1309,3 +1311,7 @@ export default function BrandMatchFlow() {
             onCreateNewList={() => { setShowSavedList(false); setShortlisted([]); setStep(1); }}
           />
         )}
+
+    </div>
+  );
+}
